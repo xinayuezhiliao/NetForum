@@ -189,6 +189,28 @@ public class PostDAO {
     }
 
     /**
+     * 更新帖子标题与内容
+     */
+    public boolean update(Integer id, String title, String content) {
+        String sql = "UPDATE t_post SET title=?, content=?, update_time=NOW() WHERE id=?";
+        Connection conn = null;
+        PreparedStatement ps = null;
+        try {
+            conn = DBUtil.getConnection();
+            ps = conn.prepareStatement(sql);
+            ps.setString(1, title);
+            ps.setString(2, content);
+            ps.setInt(3, id);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        } finally {
+            DBUtil.close(conn, ps);
+        }
+    }
+
+    /**
      * 更新回复数
      */
     public boolean incrementReplyCount(Integer postId) {

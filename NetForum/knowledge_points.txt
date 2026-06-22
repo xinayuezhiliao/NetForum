@@ -1,0 +1,486 @@
+NetForum 网上论坛系统 —— 课程考核知识点扫描报告
+=========================================================
+
+项目简介
+-------
+本项目是一个基于 Java Web 的中文论坛系统，使用 Servlet + JSP + JDBC 技术栈，
+采用 MVC 架构、传统 Scriptlet 风格的 JSP 视图，配合 DBCP 连接池、Gson JSON
+库和现代 HTML5/CSS3/JS（Fetch API）实现。
+
+主要目录结构：
+- src/main/java/com/netforum/
+  ├── model/     实体类（User/Post/Board/Reply/Attachment）
+  ├── dao/       数据访问层（JDBC 实现）
+  ├── service/   业务层
+  ├── servlet/   控制器层（8 个 Servlet）
+  ├── filter/    过滤器（2 个）
+  ├── listener/  监听器（1 个）
+  └── util/      工具类（DBUtil / FileUploadUtil / MD5Util）
+- src/main/webapp/
+  ├── WEB-INF/web.xml
+  ├── index.jsp
+  ├── pages/     视图 JSP
+  └── css/       样式
+
+
+============================================================
+知识点 1：Servlet 基础和 Servlet 核心接口
+============================================================
+状态：✅ 充分使用
+
+使用情况：
+- 8 个自定义 Servlet 全部继承自 javax.servlet.http.HttpServlet，并分别
+  重写 doGet / doPost 核心方法处理 HTTP 请求。
+- 通过 @WebServlet 注解进行路由注册（Servlet 3.0+ 特性）：
+  - @WebServlet("/user/*")        UserServlet
+  - @WebServlet("/post/*")        PostServlet（同时标注 @MultipartConfig）
+  - @WebServlet("/board/*")       BoardServlet
+  - @WebServlet("/reply/*")       ReplyServlet
+  - @WebServlet("/index") ""      IndexServlet
+  - @WebServlet("/download/*")    DownloadServlet
+  - @WebServlet("/page/*")        PageServlet
+  - @WebServlet("/static/*")      StaticServlet
+- 核心接口与 API：
+  - HttpServletRequest：getParameter / getPart / getPathInfo /
+    getRequestDispatcher / setAttribute / getSession
+  - HttpServletResponse：getWriter / setContentType / setHeader /
+    sendRedirect / setCharacterEncoding
+  - ServletConfig / ServletContext：通过 getServletContext().getRealPath()
+    获取上传目录的真实磁盘路径。
+  - RequestDispatcher：forward 转发到 JSP（如
+    req.getRequestDispatcher("/pages/post/post.jsp").forward(req, resp)）。
+- 在 IndexServlet 上同时使用 urlPatterns = {"", "/index"} 实现"空串 +
+  /index"双路径匹配首页。
+- 在 web.xml 中注册了 <welcome-file>index.jsp</welcome-file>，
+  以及 <error-page> 404/500 自定义错误页。
+
+涉及文件：
+  src/main/webapp/WEB-INF/web.xml
+  src/main/java/com/netforum/servlet/*.java (8 个)
+
+
+============================================================
+知识点 2：会话跟踪技术
+============================================================
+状态：✅ 充分使用（HttpSession 为主）
+
+使用情况：
+- 项目使用 HttpSession 作为会话跟踪手段（基于 Cookie 的 JSESSIONID，
+  容器自动管理 Cookie）。
+- 关键实现：
+  1) 登录写入会话（UserServlet.handleLogin）：
+       req.getSession().setAttribute("loginUser", user);
+  2) 退出销毁会话（UserServlet doGet /logout 分支）：
+       req.getSession().invalidate();
+  3) 鉴权读取会话（几乎所有业务 Servlet）：
+       User loginUser = (User) req.getSession().getAttribute("loginUser");
+       if (loginUser == null) { resp.sendRedirect(...); return; }
+  4) 跨 Servlet 共享数据：通过 session.setAttribute("flashError", ...)
+     实现重定向后的闪现消息（PostServlet handleDelete）。
+  5) 配合 LoginFilter 拦截 /user/profile 请求做集中式登录校验。
+- 会话超时在 web.xml 中显式配置：
+    <session-config>
+        <session-timeout>60</session-timeout>
+    </session-config>
+- 此外还使用 request 域（setAttribute/getAttribute）做单次请求内的
+  数据传递（错误信息回显等），用 application 域存放在线人数。
+
+涉及文件：
+  src/main/webapp/WEB-INF/web.xml（session-config）
+  src/main/java/com/netforum/servlet/UserServlet.java
+  src/main/java/com/netforum/servlet/PostServlet.java
+  src/main/java/com/netforum/servlet/BoardServlet.java
+  src/main/java/com/netforum/servlet/ReplyServlet.java
+  src/main/java/com/netforum/filter/LoginFilter.java
+
+
+============================================================
+知识点 3：过滤器和监听器
+============================================================
+状态：✅ 充分使用
+
+使用情况：
+
+【过滤器】共 2 个，均使用 @WebFilter 注解注册（Servlet 3.0）：
+- EncodingFilter（@WebFilter("/*")）：
+  - 实现 javax.servlet.Filter 接口
+  - 重写 init / doFilter / destroy 三个生命周期方法
+  - 在 doFilter 中统一设置请求与响应的字符编码为 UTF-8，
+    解决 POST 请求中文乱码问题；可通过 init-param 配置自定义编码
+    （本项目使用默认 UTF-8）。
+- LoginFilter（@WebFilter("/user/profile")）：
+  - 在请求到达 Servlet 之前检查 session 中是否存在 loginUser，
+    未登录则直接 sendRedirect 到 /user/login，已登录则 chain.doFilter
+    放行。
+  - 这是典型的"权限校验 / 登录拦截"过滤器模式。
+
+【监听器】共 1 个：
+- OnlineUserListener：实现 javax.servlet.http.HttpSessionListener 接口，
+  用 @WebListener 注解注册。
+  - sessionCreated：递增 ServletContext 中保存的 AtomicInteger 计数器。
+  - sessionDestroyed：递减计数器。
+  - 提供 ONLINE_COUNT 常量作为 application 作用域的 key。
+  - 监听器统计的"在线人数"在 index.jsp 通过
+    application.getAttribute("onlineCount") 读取并展示。
+
+涉及文件：
+  src/main/java/com/netforum/filter/EncodingFilter.java
+  src/main/java/com/netforum/filter/LoginFilter.java
+  src/main/java/com/netforum/listener/OnlineUserListener.java
+
+
+============================================================
+知识点 4：JSP 语法和内置对象
+============================================================
+状态：✅ 充分使用（但以 Scriptlet 风格为主）
+
+使用情况：
+- JSP 指令：
+  - <%@ page contentType="text/html;charset=UTF-8" language="java" %>：
+    几乎所有 JSP 都使用，指定字符编码为 UTF-8。
+  - <%@ page import="com.netforum.model.*" %> / service.* / java.util.*：
+    引入业务类以便在 Scriptlet 中使用（典型如 post.jsp 引入 Post/Reply/
+    User/Attachment/SimpleDateFormat）。
+- JSP 动作元素：
+  - <jsp:include page="/pages/common/header.jsp"/>：在 index.jsp、
+    board.jsp、post.jsp、profile.jsp 等页面统一引入头部。
+  - <jsp:include page="/pages/common/footer.jsp"/>：统一引入尾部。
+    这是典型的 JSP 包含（Include）动作 / 静态包含的页面片段复用方式。
+- JSP Scriptlet 三种语法：
+  - <% ... %>  Scriptlet：嵌入 Java 代码（条件判断、循环、类型转换）。
+  - <%= ... %>  表达式：输出变量值（如 <%= board.getName() %>、
+    <%= post.getTitle() %>）。
+  - <%! ... %>  声明：本项目未使用。
+- JSP 内置对象使用情况（隐式对象，18 个文件 / 98 处）：
+  - request：getAttribute 取回 Servlet 放入的数据（post、board、posts、
+    attachments、error 等），request.getContextPath() 拼接 URL，
+    request.getParameter("xxx") 取请求参数。
+  - session：getAttribute("loginUser") 获取当前登录用户，
+    session.removeAttribute("flashError") 消费闪现消息。
+  - application：getAttribute("onlineCount") 读取监听器维护的在线
+    用户数（index.jsp）。
+  - out / response / config / pageContext：本项目主要用 pageContext
+    配合 EL 取 contextPath。
+- 注释方式：使用 <%-- ... -- %>（index.jsp 顶部使用）。
+
+涉及文件：
+  src/main/webapp/index.jsp
+  src/main/webapp/pages/**/*.jsp（10+ 业务页）
+  src/main/webapp/pages/common/header.jsp
+  src/main/webapp/pages/common/footer.jsp
+
+
+============================================================
+知识点 5：JSP 和 JavaBean
+============================================================
+状态：⚠️ 部分使用（自定义 JavaBean 类齐全，JSP <jsp:useBean> 动作未使用）
+
+使用情况：
+- JavaBean 模型类齐全，全部遵循"无参构造 + 私有属性 + Getter/Setter"
+  规范（可序列化的 POJO）：
+  - User（id/username/password/email/avatar/role/createTime +
+    业务方法 isAdmin()）
+  - Board / Post / Reply / Attachment
+- 这些 Bean 作为数据传输对象贯穿 model → dao → service → servlet →
+  jsp 整条调用链：
+  - DAO 层方法返回 Bean 实例
+  - Servlet 通过 request.setAttribute("post", post) / setAttribute("posts",
+    posts) 传递给 JSP
+  - JSP 在 Scriptlet 中 (Post) request.getAttribute("post") 取出后调用
+    Getter 输出（典型如 board.jsp 列表渲染、post.jsp 详情页）
+- 注意点：本项目没有在 JSP 中使用标准 JSP Bean 动作标签
+  <jsp:useBean>、<jsp:setProperty>、<jsp:getProperty>，而是通过 Scriptlet
+  + 强制类型转换 + Getter 调用访问 Bean 属性。这是相对老式的写法，
+  但仍属于 JSP + JavaBean 的范畴。
+
+涉及文件：
+  src/main/java/com/netforum/model/*.java（5 个 Bean）
+  全部业务 JSP（消费 Bean）
+
+
+============================================================
+知识点 6：EL 表达式语言
+============================================================
+状态：✅ 充分使用
+
+使用情况：
+- 全站 16 个 JSP 文件中共出现约 70 处 EL 表达式 ${...}，主要用于：
+  - 上下文路径：${pageContext.request.contextPath} 用于拼接
+    CSS/JS 静态资源、Servlet 链接、表单 action 等，避免硬编码
+    Web 应用根路径（典型写法：
+    ${pageContext.request.contextPath}/css/style.css）。
+  - 与 JSTL 不同，EL 在本项目中主要承担"取上下文路径"和少量条件
+    输出（部分页面与 Scriptlet 配合使用）。
+- 隐式对象使用：pageContext（最常用）、request / session 也有间接
+  访问（通过 pageContext.request / pageContext.session）。
+- 由于本项目 JSP 以 Scriptlet 为主，EL 角色相对辅助，未出现 ${bean.
+  property} 这类深度对象导航，但 EL 的基础设施已完整使用。
+
+涉及文件：
+  全部 JSP（见第 4 点的列表）
+
+
+============================================================
+知识点 7：JSTL
+============================================================
+状态：❌ 未实际使用（pom.xml 中引入了 JSTL 1.2 依赖，但无任何 JSP
+      使用 <%@ taglib %> 引入 core/fmt/functions 标签库）
+
+扫描结果：
+- 关键字搜索：%@ taglib、taglib uri= 在 src/main/webapp 下"无匹配"
+- 没有任何 <c:forEach> / <c:if> / <c:choose> / <fmt:formatDate> /
+  <fn:length> 等 JSTL 标签。
+- 项目中所有循环（如 board.jsp 的帖子列表、post.jsp 的回复列表）、
+  条件判断（如登录/管理员/管理员发布等）都是用 Java for/if
+  Scriptlet 完成的。
+- 依赖管理：pom.xml 第 39-43 行声明了 javax.servlet:jstl:1.2，
+  属于"声明但未使用"的状态。
+
+【备注】课程报告中可如实写"未使用 JSTL，循环与条件均以 JSP Scriptlet
+实现，但项目已声明 JSTL 依赖以备扩展"，不必硬凑使用场景。
+
+
+============================================================
+知识点 8：MVC 模式运用
+============================================================
+状态：✅ 充分使用
+
+使用情况：
+项目结构清晰，遵循标准 MVC 分层：
+
+- Model（模型层）：com.netforum.model 包
+  - 5 个实体 Bean：User、Post、Board、Reply、Attachment
+- View（视图层）：src/main/webapp 下的 JSP 页面
+  - 负责页面渲染，使用 EL + Scriptlet 展示数据
+  - 不直接访问 DAO（个别页面在 Scriptlet 里 new 了 Service 用于读
+    取列表渲染：post.jsp、create_post.jsp，这属于边界模糊的折中
+    写法，但仍以 Servlet 转发为主流程）
+- Controller（控制器层）：com.netforum.servlet 包
+  - 8 个 Servlet 接收请求 → 调 Service → 转发或重定向
+  - 路由风格：@WebServlet("/xxx/*") + getPathInfo() 模拟 RESTful
+    风格的多动作分发
+- Service 层（业务层）：com.netforum.service 包
+  - 5 个 Service 类（UserService / PostService / BoardService /
+    ReplyService / AttachmentService）封装业务规则，如 PostService.
+    deletePost() 实现"先删回复 → 删附件 → 删点赞 → 删帖子 → 更新
+    板块帖子数"的级联逻辑。
+- DAO 层（持久层）：com.netforum.dao 包
+  - 6 个 DAO（User/Post/Board/Reply/Attachment/Like）
+  - 使用 JDBC PreparedStatement，封装 CRUD
+- 典型调用链（以发帖为例）：
+  post.jsp 表单 → PostServlet.doPost(/create) → PostService.createPost
+  → PostDAO.create (JDBC INSERT) → 重定向 /post/detail?id=xx →
+  PostServlet.doGet → PostService.getPostById → PostDAO.findById
+  → request.setAttribute → forward 到 post.jsp 渲染
+
+涉及文件：
+  src/main/java/com/netforum/servlet/  控制器
+  src/main/java/com/netforum/service/  业务
+  src/main/java/com/netforum/dao/      持久
+  src/main/java/com/netforum/model/    模型
+  src/main/webapp/**/*.jsp             视图
+
+
+============================================================
+知识点 9：HTML、CSS、JavaScript 构建页面
+============================================================
+状态：✅ 充分使用
+
+使用情况：
+
+【HTML5】
+- 全部页面采用 <!DOCTYPE html> + <html lang="zh-CN"> 标准结构
+- 使用语义化标签：<header> / <main> / <footer> / <section> /
+  <article> / <nav>
+- 表单元素：input (text/email/password/file)、textarea、select、
+  button，配合 required、maxlength、autocomplete、accept、disabled
+  等 HTML5 属性
+- 多处使用内联 SVG 图标（替换图标字体方案），如 <svg class="ic" ...>
+- 响应式 meta：<meta name="viewport" content="width=device-width,
+  initial-scale=1.0">
+
+【CSS3】
+- 单文件 style.css（约 1000+ 行），采用 2026 主题"墨色 / 暖白 / 朱砂红"
+- 大量使用 CSS 变量（:root 自定义属性：颜色 / 间距 / 字体 / 圆角 /
+  动效缓动函数）
+- 现代特性：cubic-bezier 缓动、:hover 过渡、flex 布局、grid 布局、
+  backdrop-filter 视感、::selection / ::-webkit-scrollbar 伪元素、
+  媒体查询、radial-gradient 背景等
+- 工具类命名约定：layout flex、stagger-1..8 入场动画、btn 按钮族
+  (btn--primary/quiet/danger/sm/lg)、tag 标签族
+- 通过 ${pageContext.request.contextPath}/css/style.css 统一引用
+
+【JavaScript】
+- 客户端主要逻辑集中在 post.jsp 的 <script> 块，使用原生 ES6+：
+  - fetch() API：异步提交 / 删除回复、点赞帖子
+  - Promise.then 链
+  - 模板字符串
+  - DOM 操作：getElementById、textContent、.remove()
+  - 事件处理：onclick / onsubmit 内联
+- 浏览器原生 confirm() 做删除确认
+- 不依赖任何第三方 JS 框架（无 jQuery、无 Vue、无 React）
+
+涉及文件：
+  src/main/webapp/css/style.css
+  src/main/webapp/**/*.jsp（HTML 结构 + 内联 script）
+
+
+============================================================
+知识点 10：Ajax 与 JSON 技术
+============================================================
+状态：✅ 充分使用
+
+使用情况：
+- 前端 Ajax：使用浏览器原生 fetch API（POST + x-www-form-urlencoded
+  body），代码集中在 post.jsp 底部 <script>：
+  - submitReply(postId)  →  POST /reply/add  body: action=add&postId=&content=
+  - deleteReply(replyId) →  POST /reply/delete body: action=delete&id=
+  - likePost(postId)     →  POST /post/like    （无 body，纯查询参数）
+- 后端 JSON 响应：使用 Google Gson 2.10.1（pom.xml 第 60-64 行）
+  - PostServlet 通过 resp.setContentType("application/json;charset=UTF-8")
+    + gson.toJson(posts) 输出帖子列表 JSON
+  - ReplyServlet 用 gson.toJson(reply) / toJson(replies) 输出回复
+  - 个别 Ajax 接口直接拼接 JSON 字符串（如
+    "{\"success\":true,\"id\":" + attId + "}"），未走 Gson（属于
+    简化实现）。
+- 跨 Servlet 通信：点赞 / 回复 / 删除均通过 Ajax 实现局部刷新，
+  提升交互体验（赞数 +1 不刷新、删除回复后 DOM 节点移除）。
+
+涉及文件：
+  src/main/java/com/netforum/servlet/PostServlet.java
+  src/main/java/com/netforum/servlet/ReplyServlet.java
+  src/main/webapp/pages/post/post.jsp（fetch 调用）
+
+
+============================================================
+知识点 11：文件上传与下载
+============================================================
+状态：✅ 充分使用
+
+使用情况：
+
+【文件上传】
+- Servlet 3.0+ 的 @MultipartConfig + javax.servlet.http.Part API：
+  - UserServlet、PostServlet 均标注 @MultipartConfig
+  - 注册时通过 req.getPart("avatar") 获取头像文件
+  - 帖子附件通过 PostServlet /upload 接口上传，文件字段名 "file"
+- 服务端保存逻辑：
+  - getServletContext().getRealPath("/upload/avatar") /
+    ("/upload/attachment") 解析真实磁盘路径
+  - 用 System.currentTimeMillis() + "_" + 原始文件名（或 Math.random
+    拼后缀）做文件名防冲突
+  - 写盘：part.write(savePath)
+  - 头像记录字段为 /upload/avatar/xxx；附件记录到 t_attachment 表
+- 工具类 com.netforum.util.FileUploadUtil 提供 UUID 命名等辅助方法
+  （本项目主要逻辑直接写在 Servlet 中，工具类作为备用）。
+
+【文件下载】
+- DownloadServlet 专门处理 /download/* 请求：
+  - 根据 id 查 Attachment 实体
+  - 拼接 getRealPath("/upload/attachment") + att.getFilePath() 找到
+    真实文件
+  - 设置响应头：
+    resp.setContentType("application/octet-stream");
+    resp.setHeader("Content-Disposition", "attachment; filename=\"" +
+        new String(att.getFileName().getBytes("UTF-8"), "ISO-8859-1")
+        + "\"");
+    （处理中文文件名编码）
+    resp.setContentLength((int) file.length());
+  - 用 FileInputStream + 4096 字节缓冲手动流式写出到
+    OutputStream（try-with-resources 自动关闭）。
+- 涉及表单 enctype：
+  - register.jsp / profile.jsp：enctype="multipart/form-data"
+  - post.jsp 的附件按钮触发到 PostServlet /upload。
+
+涉及文件：
+  src/main/java/com/netforum/servlet/UserServlet.java（头像上传）
+  src/main/java/com/netforum/servlet/PostServlet.java（附件上传）
+  src/main/java/com/netforum/servlet/DownloadServlet.java（下载）
+  src/main/java/com/netforum/util/FileUploadUtil.java（工具类）
+  src/main/java/com/netforum/model/Attachment.java
+  src/main/java/com/netforum/dao/AttachmentDAO.java
+  src/main/java/com/netforum/service/AttachmentService.java
+
+
+============================================================
+知识点 12：JDBC 数据库访问
+============================================================
+状态：✅ 充分使用（含连接池、PreparedStatement 防注入）
+
+使用情况：
+- 数据库：MySQL 8.x（mysql-connector-java 8.0.28）
+- 连接池：Apache Commons DBCP2 2.9.0
+  - 在 com.netforum.util.DBUtil 的 static 块中初始化 BasicDataSource：
+    setMaxTotal(20) / setMaxIdle(10) / setInitialSize(5)
+  - 数据源配置从 classpath 下的 db.properties 加载，提供兜底默认
+    值（root/root + localhost:3306/netforum）
+- 6 个 DAO（UserDAO / BoardDAO / PostDAO / ReplyDAO / AttachmentDAO /
+  LikeDAO）全部使用纯 JDBC：
+  - DriverManager / BasicDataSource 获取 Connection
+  - 全部使用 java.sql.PreparedStatement 占位符（?）传参，从根本上
+    避免 SQL 注入
+  - 通过 ps.executeUpdate() 处理 INSERT/UPDATE/DELETE，
+    ps.executeQuery() 处理 SELECT
+  - 插入时使用 Statement.RETURN_GENERATED_KEYS + getGeneratedKeys()
+    获取自增主键
+  - 通过 ResultSet 提取数据后映射到 model Bean 的私有字段
+  - 使用 try-catch-finally + DBUtil.close(conn, ps[, rs]) 统一释放
+    资源（重载方法支持 2 个或 3 个参数）
+- 多表关联查询（典型）：
+  - PostDAO.findById 使用 LEFT JOIN t_user / LEFT JOIN t_board
+    一次性把帖子、作者、版块信息取出
+  - BoardDAO.findAll 使用 LEFT JOIN t_post + GROUP BY 统计每个
+    版块真实帖子数
+- 事务/批量：本项目未显式使用事务（conn.setAutoCommit /
+  commit / rollback），单条 SQL 各自独立提交，属于简化实现。
+
+涉及文件：
+  src/main/java/com/netforum/util/DBUtil.java
+  src/main/java/com/netforum/dao/*.java（6 个 DAO）
+  src/main/resources/db.properties
+  sql/init.sql（建表 DDL）
+  pom.xml（mysql-connector-java + commons-dbcp2 依赖）
+
+
+============================================================
+知识点 13：Servlet 异步响应
+============================================================
+状态：❌ 未使用
+
+扫描结果：
+- 关键字 async / AsyncContext / startAsync 在 src/main/java 下"无匹配"
+- web.xml 中无 <async-supported>true</async-supported> 配置
+- @WebServlet 注解中也未设置 asyncSupported = true
+- 业务处理均为同步阻塞模式：Servlet 线程一直运行到 doGet/doPost
+  返回，文件下载也是同步流式写完才结束。
+
+【备注】这是本项目一个明显的可改进点：可对"导出长列表 / 大文件下载
+/ 实时消息推送"等场景改造为 Async I/O，但课程考核范围内未涉及，
+如实报告即可。
+
+
+============================================================
+【附】知识点覆盖情况一览
+============================================================
+1.  Servlet 基础和 Servlet 核心接口     ✅ 充分使用
+2.  会话跟踪技术                        ✅ 充分使用
+3.  过滤器和监听器                      ✅ 充分使用
+4.  JSP 语法和内置对象                  ✅ 充分使用
+5.  JSP 和 JavaBean                     ⚠️ 部分使用（Bean 完整，无 useBean 动作）
+6.  EL 表达式语言                       ✅ 充分使用
+7.  JSTL                                ❌ 未使用（已声明依赖）
+8.  MVC 模式运用                        ✅ 充分使用
+9.  HTML、CSS、JavaScript 构建页面      ✅ 充分使用
+10. Ajax 与 JSON 技术                   ✅ 充分使用
+11. 文件上传与下载                      ✅ 充分使用
+12. JDBC 数据库访问                     ✅ 充分使用
+13. Servlet 异步响应                    ❌ 未使用
+
+【总结】
+本课程设计在 13 个考核知识点中覆盖了 10 个（其中 9 个充分使用、
+1 个部分使用），未覆盖 3 个（JSTL 声明但未用、Servlet 异步未用、
+JSP useBean 动作未用）。整体技术选型偏"经典 Java Web + 现代前端
+原生 API"的组合：后端采用 Servlet + JSP + JDBC（连接池）+ Gson，
+前端用 HTML5 + CSS3（变量与动画）+ 原生 fetch 实现 Ajax。代码结构
+清晰，分层规范（M-V-C + Service + DAO），适合作为 Java Web
+入门到进阶的课程设计参考实现。

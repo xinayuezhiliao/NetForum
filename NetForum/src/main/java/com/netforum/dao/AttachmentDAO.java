@@ -114,6 +114,26 @@ public class AttachmentDAO {
         }
     }
 
+    /**
+     * 删除帖子的全部附件
+     */
+    public boolean deleteByPostId(Integer postId) {
+        String sql = "DELETE FROM t_attachment WHERE post_id=?";
+        Connection conn = null;
+        PreparedStatement ps = null;
+        try {
+            conn = DBUtil.getConnection();
+            ps = conn.prepareStatement(sql);
+            ps.setInt(1, postId);
+            return ps.executeUpdate() >= 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        } finally {
+            DBUtil.close(conn, ps);
+        }
+    }
+
     private Attachment extractAttachment(ResultSet rs) throws SQLException {
         Attachment att = new Attachment();
         att.setId(rs.getInt("id"));

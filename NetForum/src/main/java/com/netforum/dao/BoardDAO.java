@@ -16,7 +16,11 @@ public class BoardDAO {
      */
     public List<Board> findAll() {
         List<Board> boards = new ArrayList<>();
-        String sql = "SELECT * FROM t_board ORDER BY create_time DESC";
+        String sql = "SELECT b.*, COUNT(p.id) as real_post_count " +
+                     "FROM t_board b " +
+                     "LEFT JOIN t_post p ON b.id = p.board_id " +
+                     "GROUP BY b.id " +
+                     "ORDER BY b.create_time DESC";
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -25,7 +29,9 @@ public class BoardDAO {
             ps = conn.prepareStatement(sql);
             rs = ps.executeQuery();
             while (rs.next()) {
-                boards.add(extractBoard(rs));
+                Board board = extractBoard(rs);
+                board.setPostCount(rs.getInt("real_post_count"));
+                boards.add(board);
             }
         } catch (SQLException e) {
             e.printStackTrace();

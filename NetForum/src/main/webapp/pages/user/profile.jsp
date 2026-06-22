@@ -2,108 +2,96 @@
 <%@ page import="com.netforum.model.User" %>
 <%@ page import="java.text.SimpleDateFormat" %>
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>个人中心 - NetForum</title>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'DM Sans', sans-serif; font-size: 15px; line-height: 1.7; color: #2d3436; background: #f8f9fa; min-height: 100vh; }
-        h1, h2, h3, h4 { font-family: 'DM Serif Display', serif; font-weight: 400; color: #1a1a2e; line-height: 1.3; }
-        a { color: #e94560; text-decoration: none; transition: all 0.3s; }
-        a:hover { color: #d63a52; }
-        .header { background: rgba(255,255,255,0.95); box-shadow: 0 2px 8px rgba(0,0,0,0.04); position: sticky; top: 0; z-index: 100; }
-        .header-content { max-width: 1200px; margin: 0 auto; padding: 0 24px; height: 72px; display: flex; justify-content: space-between; align-items: center; }
-        .logo a { font-family: 'DM Serif Display', serif; font-size: 28px; color: #1a1a2e; }
-        .logo a span { color: #e94560; }
-        .nav { display: flex; align-items: center; gap: 32px; }
-        .nav a { color: #636e72; font-weight: 500; font-size: 14px; }
-        .nav a:hover { color: #1a1a2e; }
-        .container { max-width: 600px; margin: 40px auto; padding: 0 24px; }
-        .panel { background: #fff; border-radius: 16px; padding: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border: 1px solid #e9ecef; }
-        .panel h2 { margin-bottom: 32px; font-size: 24px; }
-        .profile-info { display: flex; flex-direction: column; gap: 20px; }
-        .avatar-section { text-align: center; margin-bottom: 20px; }
-        .profile-avatar { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid #e9ecef; }
-        .avatar-placeholder { width: 100px; height: 100px; border-radius: 50%; background: #f8f9fa; display: inline-flex; align-items: center; justify-content: center; color: #636e72; font-size: 14px; border: 3px solid #e9ecef; }
-        .form-group { margin-bottom: 20px; }
-        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a2e; font-size: 14px; }
-        .form-group input { width: 100%; padding: 14px 16px; border: 1px solid #e9ecef; border-radius: 8px; font-size: 15px; font-family: 'DM Sans', sans-serif; transition: all 0.3s; }
-        .form-group input:focus { outline: none; border-color: #e94560; box-shadow: 0 0 0 3px rgba(233,69,96,0.1); }
-        .form-group input:disabled { background: #f8f9fa; color: #636e72; cursor: not-allowed; }
-        .btn-primary { display: inline-flex; align-items: center; padding: 14px 28px; background: linear-gradient(135deg, #e94560, #ff6b81); color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(233,69,96,0.3); transition: all 0.3s; }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(233,69,96,0.4); }
-        .success-msg { background: #d4edda; color: #155724; padding: 14px 20px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; border-left: 4px solid #28a745; }
-        .footer { text-align: center; padding: 48px 24px; color: #636e72; font-size: 13px; border-top: 1px solid #e9ecef; margin-top: 60px; }
-    </style>
+    <title>个人中心 · NetForum</title>
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css">
 </head>
 <body>
+<div class="page">
     <jsp:include page="/pages/common/header.jsp"/>
 
-    <div class="container">
-        <div class="panel">
-            <h2>个人中心</h2>
+    <main>
+        <div class="container-narrow">
             <%
-                String updated = request.getParameter("updated");
-                if ("true".equals(updated)) {
-            %>
-            <div class="success-msg">个人信息已更新</div>
-            <%
-                }
                 User loginUser = (User) session.getAttribute("loginUser");
                 if (loginUser == null) {
                     response.sendRedirect(request.getContextPath() + "/user/login");
                     return;
                 }
+                String createTime = "";
+                if (loginUser.getCreateTime() != null) {
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+                    createTime = sdf.format(loginUser.getCreateTime());
+                }
             %>
-            <form action="${pageContext.request.contextPath}/user/update" method="post" enctype="multipart/form-data">
-                <div class="profile-info">
-                    <div class="avatar-section">
-                        <%
-                            if (loginUser.getAvatar() != null && !loginUser.getAvatar().isEmpty()) {
-                        %>
-                        <img src="${pageContext.request.contextPath}<%= loginUser.getAvatar() %>" alt="头像" class="profile-avatar">
-                        <%
-                            } else {
-                        %>
-                        <div class="avatar-placeholder">暂无头像</div>
-                        <%
-                            }
-                        %>
-                    </div>
-                    <div class="form-group">
-                        <label>用户名</label>
-                        <input type="text" value="<%= loginUser.getUsername() %>" disabled>
-                    </div>
-                    <div class="form-group">
-                        <label>邮箱</label>
-                        <input type="email" name="email" value="<%= loginUser.getEmail() != null ? loginUser.getEmail() : "" %>" placeholder="请输入邮箱">
-                    </div>
-                    <div class="form-group">
-                        <label>新头像</label>
-                        <input type="file" name="avatar" accept="image/*">
-                    </div>
-                    <div class="form-group">
-                        <label>注册时间</label>
-                        <%
-                            String createTime = "";
-                            if (loginUser.getCreateTime() != null) {
-                                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-                                createTime = sdf.format(loginUser.getCreateTime());
-                            }
-                        %>
-                        <input type="text" value="<%= createTime %>" disabled>
-                    </div>
-                    <div class="form-group">
-                        <button type="submit" class="btn-primary">保存修改</button>
-                    </div>
+
+            <nav class="post-detail__breadcrumb animate-in">
+                <a href="${pageContext.request.contextPath}/" class="link-bare">
+                    <svg class="ic ic--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>
+                    首页
+                </a>
+                <span class="post-detail__breadcrumb__sep">/</span>
+                <span style="color:var(--ink-1);font-weight:600">个人中心</span>
+            </nav>
+
+            <section class="profile animate-in stagger-1">
+                <div class="profile__avatar-wrap">
+                    <%
+                        if (loginUser.getAvatar() != null && !loginUser.getAvatar().isEmpty()) {
+                    %><img src="${pageContext.request.contextPath}<%= loginUser.getAvatar() %>" alt="avatar" class="profile__avatar"><%
+                    } else { %>
+                    <div class="profile__avatar-placeholder">暂无头像</div>
+                    <% } %>
+                </div>
+                <div class="profile__name">
+                    <%= loginUser.getUsername() %>
+                    <%
+                        if (loginUser.isAdmin()) {
+                    %><span class="tag tag--admin">ADMIN</span><% } %>
+                </div>
+                <div class="profile__meta">Joined since <%= createTime %></div>
+            </section>
+
+            <%
+                if ("true".equals(request.getParameter("updated"))) {
+            %>
+            <div class="msg msg--success">
+                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                个人信息已更新
+            </div>
+            <% } %>
+
+            <form class="form animate-in stagger-2" action="${pageContext.request.contextPath}/user/update" method="post" enctype="multipart/form-data" style="padding-bottom:var(--space-9)">
+                <div class="form-row">
+                    <label class="form-label" for="username">用户名 <span class="form-label__hint">不可修改</span></label>
+                    <input id="username" type="text" class="form-input" value="<%= loginUser.getUsername() %>" disabled>
+                </div>
+                <div class="form-row">
+                    <label class="form-label" for="email">邮箱</label>
+                    <input id="email" type="email" name="email" class="form-input" value="<%= loginUser.getEmail() != null ? loginUser.getEmail() : "" %>" placeholder="请输入邮箱">
+                </div>
+                <div class="form-row">
+                    <label class="form-label" for="avatar">更换头像 <span class="form-label__hint">JPG / PNG · 最大 2MB</span></label>
+                    <input id="avatar" type="file" name="avatar" accept="image/*" class="form-file">
+                </div>
+                <div class="form-row">
+                    <label class="form-label">注册时间</label>
+                    <input type="text" class="form-input" value="<%= createTime %>" disabled>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn--primary">
+                        保存修改
+                        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+                    </button>
                 </div>
             </form>
         </div>
-    </div>
+    </main>
 
     <jsp:include page="/pages/common/footer.jsp"/>
+</div>
 </body>
 </html>

@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * 首页控制器 - 处理根路径 /
  */
-@WebServlet(name = "IndexServlet", urlPatterns = {"/", "/index"})
+@WebServlet(name = "IndexServlet", urlPatterns = {"", "/index"})
 public class IndexServlet extends HttpServlet {
 
     private BoardService boardService = new BoardService();

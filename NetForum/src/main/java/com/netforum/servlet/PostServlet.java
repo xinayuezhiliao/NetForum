@@ -50,7 +50,7 @@ public class PostServlet extends HttpServlet {
                 Post post = postService.getPostById(Integer.parseInt(idStr));
                 if (post != null) {
                     User loginUser = (User) req.getSession().getAttribute("loginUser");
-                    if (loginUser != null && loginUser.getId().equals(post.getUserId())) {
+                    if (loginUser != null && (loginUser.getId().equals(post.getUserId()) || loginUser.isAdmin())) {
                         req.setAttribute("post", post);
                         req.setAttribute("boards", boardService.getAllBoards());
                         req.getRequestDispatcher("/pages/post/edit_post.jsp").forward(req, resp);
@@ -155,16 +155,32 @@ public class PostServlet extends HttpServlet {
         }
 
         Post post = postService.getPostById(Integer.parseInt(idStr));
-        if (post == null || !post.getUserId().equals(loginUser.getId()) && !loginUser.isAdmin()) {
+        if (post == null) {
+            resp.sendRedirect(req.getContextPath() + "/");
+            return;
+        }
+        // 权限校验：作者或管理员
+        if (!post.getUserId().equals(loginUser.getId()) && !loginUser.isAdmin()) {
             resp.sendRedirect(req.getContextPath() + "/");
             return;
         }
 
         String title = req.getParameter("title");
         String content = req.getParameter("content");
-        post.setTitle(title);
-        post.setContent(content);
-        resp.sendRedirect(req.getContextPath() + "/post/detail?id=" + post.getId());
+
+        if (title == null || title.trim().isEmpty() || content == null || content.trim().isEmpty()) {
+            req.getSession().setAttribute("flashError", "标题与内容不能为空");
+            resp.sendRedirect(req.getContextPath() + "/post/edit?id=" + post.getId());
+            return;
+        }
+
+        boolean ok = postService.updatePost(post.getId(), title, content);
+        if (ok) {
+            resp.sendRedirect(req.getContextPath() + "/post/detail?id=" + post.getId());
+        } else {
+            req.getSession().setAttribute("flashError", "更新失败，请稍后重试");
+            resp.sendRedirect(req.getContextPath() + "/post/edit?id=" + post.getId());
+        }
     }
 
     private void handleDelete(HttpServletRequest req, HttpServletResponse resp, User loginUser)
@@ -204,14 +220,14 @@ public class PostServlet extends HttpServlet {
             if (success) {
                 resp.sendRedirect(req.getContextPath() + "/board/detail?id=" + post.getBoardId());
             } else {
-                resp.setContentType("application/json;charset=UTF-8");
-                resp.getWriter().write("{\"success\":false,\"message\":\"删除失败\"}");
+                req.getSession().setAttribute("flashError", "删除帖子失败，请稍后重试");
+                resp.sendRedirect(req.getContextPath() + "/post/detail?id=" + post.getId());
             }
         } catch (Exception e) {
             System.out.println("=== Exception: " + e.getMessage());
             e.printStackTrace();
-            resp.setContentType("application/json;charset=UTF-8");
-            resp.getWriter().write("{\"success\":false,\"message\":\"" + e.getMessage() + "\"}");
+            req.getSession().setAttribute("flashError", "删除失败：" + e.getMessage());
+            resp.sendRedirect(req.getContextPath() + "/post/detail?id=" + idStr);
         }
     }
 

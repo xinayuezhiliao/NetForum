@@ -1,0 +1,51 @@
+# ===== Maven 构建产物 =====
+target/
+*.war
+*.ear
+*.jar
+*.class
+mvnw
+mvnw.cmd
+.mvn/wrapper/maven-wrapper.jar
+
+# ===== IDE =====
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.project
+.classpath
+.settings/
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+# ===== 日志 =====
+logs/
+*.log
+
+# ===== 临时 / 协作残留 =====
+.cowork-temp/
+*.tmp
+*.bak
+*.swp
+*~
+# Claude Code / AI Agent 状态文件(可能含 session_id、cost 等敏感信息)
+# 文件名包含 `C:Users` 的隐藏标记文件(Windows 路径转义名)
+/sql/C:Users*
+sql/C:Users*
+*.marker.txt
+.statusline_*
+.claude/
+.aimate/
+
+# ===== 上传文件(运行期生成) =====
+src/main/webapp/upload/
+src/main/webapp/uploads/
+
+# ===== 系统 =====
+.DS_Store
+Thumbs.db
+desktop.ini

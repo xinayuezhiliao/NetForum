@@ -3,6 +3,8 @@ package com.netforum.service;
 import com.netforum.dao.PostDAO;
 import com.netforum.dao.BoardDAO;
 import com.netforum.dao.LikeDAO;
+import com.netforum.dao.ReplyDAO;
+import com.netforum.dao.AttachmentDAO;
 import com.netforum.model.Post;
 import com.netforum.model.Board;
 import java.util.List;
@@ -15,6 +17,8 @@ public class PostService {
     private PostDAO postDAO = new PostDAO();
     private BoardDAO boardDAO = new BoardDAO();
     private LikeDAO likeDAO = new LikeDAO();
+    private ReplyDAO replyDAO = new ReplyDAO();
+    private AttachmentDAO attachmentDAO = new AttachmentDAO();
 
     /**
      * 创建帖子
@@ -40,6 +44,16 @@ public class PostService {
      */
     public void incrementViewCount(Integer postId) {
         postDAO.incrementViewCount(postId);
+    }
+
+    /**
+     * 更新帖子
+     */
+    public boolean updatePost(Integer postId, String title, String content) {
+        if (title == null || title.trim().isEmpty() || content == null) {
+            return false;
+        }
+        return postDAO.update(postId, title.trim(), content);
     }
 
     /**
@@ -81,13 +95,18 @@ public class PostService {
     }
 
     /**
-     * 删除帖子
+     * 删除帖子（级联删除关联的回复、附件、点赞）
      */
     public boolean deletePost(Integer postId) {
         Post post = postDAO.findById(postId);
         if (post != null) {
-            // 先删除该帖子的点赞记录
+            // 1. 删除该帖子的回复
+            replyDAO.deleteByPostId(postId);
+            // 2. 删除该帖子的附件
+            attachmentDAO.deleteByPostId(postId);
+            // 3. 删除该帖子的点赞记录
             likeDAO.removeLikesByPostId(postId);
+            // 4. 删除帖子
             boolean deleted = postDAO.delete(postId);
             if (deleted) {
                 boardDAO.updatePostCount(post.getBoardId(), -1);

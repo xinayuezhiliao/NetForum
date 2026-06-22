@@ -1,258 +1,182 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="com.netforum.service.BoardService" %>
 <%@ page import="com.netforum.model.Board" %>
+<%@ page import="com.netforum.model.User" %>
 <%@ page import="java.util.List" %>
 <%@ page import="java.util.concurrent.atomic.AtomicInteger" %>
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NetForum - 网上论坛</title>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-            font-size: 15px;
-            line-height: 1.7;
-            color: #2d3436;
-            background: #f8f9fa;
-            min-height: 100vh;
-        }
-        h1, h2, h3, h4 {
-            font-family: 'DM Serif Display', serif;
-            font-weight: 400;
-            color: #1a1a2e;
-            line-height: 1.3;
-        }
-        a {
-            color: #e94560;
-            text-decoration: none;
-            transition: all 0.3s;
-        }
-        a:hover {
-            color: #d63a52;
-        }
-        .header {
-            background: rgba(255,255,255,0.95);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-        .header-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 24px;
-            height: 72px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .logo a {
-            font-family: 'DM Serif Display', serif;
-            font-size: 28px;
-            color: #1a1a2e;
-            letter-spacing: -0.5px;
-        }
-        .logo a span { color: #e94560; }
-        .nav { display: flex; align-items: center; gap: 32px; }
-        .nav a {
-            color: #636e72;
-            font-weight: 500;
-            font-size: 14px;
-            position: relative;
-        }
-        .nav a:hover { color: #1a1a2e; }
-        .container {
-            max-width: 1200px;
-            margin: 40px auto;
-            padding: 0 24px;
-            display: grid;
-            grid-template-columns: 280px 1fr;
-            gap: 32px;
-        }
-        .sidebar { position: sticky; top: 96px; height: fit-content; }
-        .panel {
-            background: #ffffff;
-            border-radius: 16px;
-            padding: 32px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-            border: 1px solid #e9ecef;
-        }
-        .panel h2 {
-            margin-bottom: 24px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #e9ecef;
-            font-size: 22px;
-        }
-        .panel h3 {
-            margin-bottom: 20px;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #636e72;
-            opacity: 0.9;
-        }
-        .stat-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        .stat-item:last-child { border-bottom: none; }
-        .stat-label { font-size: 14px; opacity: 0.8; color: #fff; }
-        .stat-value {
-            font-size: 24px;
-            font-weight: 700;
-            font-family: 'DM Serif Display', serif;
-            color: #fff;
-        }
-        .stats-panel {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #fff;
-            border: none;
-        }
-        .board-table { width: 100%; border-collapse: collapse; }
-        .board-table th {
-            text-align: left;
-            padding: 16px 12px;
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #636e72;
-            border-bottom: 2px solid #e9ecef;
-        }
-        .board-table td {
-            padding: 20px 12px;
-            border-bottom: 1px solid #e9ecef;
-            vertical-align: middle;
-        }
-        .board-table tbody tr:hover { background: #f8f9fa; }
-        .board-name {
-            font-weight: 600;
-            color: #1a1a2e;
-            font-size: 16px;
-        }
-        .board-desc { color: #636e72; font-size: 13px; }
-        .board-stats { text-align: center; color: #636e72; font-size: 14px; }
-        .btn-enter {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 8px 16px;
-            background: #f8f9fa;
-            color: #2d3436;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all 0.3s;
-        }
-        .btn-enter:hover {
-            background: #e94560;
-            color: #fff;
-            transform: translateX(4px);
-        }
-        .footer {
-            text-align: center;
-            padding: 48px 24px;
-            color: #636e72;
-            font-size: 13px;
-            border-top: 1px solid #e9ecef;
-            margin-top: 60px;
-        }
-        @media (max-width: 900px) {
-            .container { grid-template-columns: 1fr; }
-            .sidebar { position: static; }
-        }
-    </style>
+    <title>NetForum — 网上论坛</title>
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css">
 </head>
 <body>
-    <div class="header">
-        <div class="header-content">
-            <div class="logo">
-                <a href="${pageContext.request.contextPath}/">Net<span>Forum</span></a>
-            </div>
-            <nav class="nav">
-                <a href="${pageContext.request.contextPath}/">首页</a>
-                <a href="${pageContext.request.contextPath}/user/login">登录</a>
-                <a href="${pageContext.request.contextPath}/user/register">注册</a>
-            </nav>
-        </div>
-    </div>
+<div class="page">
+    <jsp:include page="/pages/common/header.jsp"/>
 
-    <div class="container">
-        <div class="sidebar">
-            <div class="panel stats-panel">
-                <h3>论坛统计</h3>
-                <div class="stat-item">
-                    <span class="stat-label">在线用户</span>
+    <main>
+        <div class="container">
+            <%
+                BoardService bs = new BoardService();
+                List<Board> boards = bs.getAllBoards();
+                int totalPosts = 0;
+                if (boards != null) for (Board b : boards) totalPosts += b.getPostCount();
+                int onlineCount = 0;
+                Object countObj = application.getAttribute("onlineCount");
+                if (countObj != null) {
+                    if (countObj instanceof AtomicInteger) onlineCount = ((AtomicInteger) countObj).get();
+                    else if (countObj instanceof Integer) onlineCount = (Integer) countObj;
+                }
+            %>
+
+            <!-- HERO -->
+            <section class="hero hero--ornament animate-in">
+                <div class="hero__grid">
+                    <div>
+                        <span class="eyebrow">No.<%= boards != null ? boards.size() : 0 %> Edition · 2026</span>
+                        <h1 class="hero__title">记录思考，<em>慢一点</em>也无妨。</h1>
+                        <p class="hero__sub">一个安静的中文论坛。挑选你感兴趣的版块，与社区一起分享观点，沉淀文字。</p>
+                        <div class="hero__meta">
+                            <div class="hero__stat">
+                                <div class="hero__stat-num mono"><%= boards != null ? boards.size() : 0 %></div>
+                                <div class="hero__stat-label">版块</div>
+                            </div>
+                            <div class="hero__stat">
+                                <div class="hero__stat-num mono"><%= totalPosts %></div>
+                                <div class="hero__stat-label">帖子</div>
+                            </div>
+                            <div class="hero__stat">
+                                <div class="hero__stat-num mono"><%= onlineCount %></div>
+                                <div class="hero__stat-label">在线</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- BOARDS -->
+            <section class="section">
+                <div class="section__head">
+                    <h2 class="section__title">所有版块</h2>
+                    <span class="section__sub">A selection of rooms · <%= boards != null ? boards.size() : 0 %> in total</span>
+                </div>
+
+                <%
+                    if (boards == null || boards.isEmpty()) {
+                %>
+                <div class="empty">
+                    <div class="empty__icon">
+                        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7l9-4 9 4M3 7v10l9 4 9-4V7M3 7l9 4m0 0l9-4m-9 4v10"/></svg>
+                    </div>
+                    <h3 class="empty__title">还没有版块</h3>
+                    <p class="empty__sub">管理员可以创建第一个版块</p>
+                </div>
+                <%
+                    } else {
+                %>
+                <div class="board-grid">
                     <%
-                        int onlineCount = 0;
-                        Object countObj = application.getAttribute("onlineCount");
-                        if (countObj != null) {
-                            if (countObj instanceof AtomicInteger) {
-                                onlineCount = ((AtomicInteger) countObj).get();
-                            } else if (countObj instanceof Integer) {
-                                onlineCount = (Integer) countObj;
-                            }
+                        for (Board board : boards) {
+                            int iconIdx = (int)(Math.abs(board.getId() == null ? board.getName().hashCode() : board.getId().longValue()) % 7);
+                    %>
+                    <a class="board-card link-bare animate-in stagger-<%= Math.min(boards.indexOf(board) + 1, 8) %>" href="${pageContext.request.contextPath}/board/detail?id=<%= board.getId() %>">
+                        <div class="board-card__head">
+                            <span class="board-card__icon">
+                                <%
+                                    switch (iconIdx) {
+                                        case 0: // hash
+                                %><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg><%
+                                            break;
+                                        case 1: // chat bubble
+                                %><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><%
+                                            break;
+                                        case 2: // book
+                                %><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><%
+                                            break;
+                                        case 3: // music
+                                %><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/></svg><%
+                                            break;
+                                        case 4: // film
+                                %><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5"/></svg><%
+                                            break;
+                                        case 5: // code
+                                %><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg><%
+                                            break;
+                                        case 6: // spark / star
+                                %><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.39 7.36H22l-6.18 4.49L18.21 22 12 17.27 5.79 22l2.39-8.15L2 9.36h7.61z"/></svg><%
+                                            break;
+                                    }
+                                %>
+                            </span>
+                            <span class="board-card__count">№ <%= String.format("%03d", board.getId()) %></span>
+                        </div>
+                        <h3 class="board-card__name"><%= board.getName() %></h3>
+                        <p class="board-card__desc"><%= board.getDescription() != null ? board.getDescription() : "尚未添加描述" %></p>
+                        <div class="board-card__foot">
+                            <span class="post-row__meta-item">
+                                <svg class="ic ic--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                <span class="mono"><%= board.getPostCount() %></span>
+                            </span>
+                            <span class="post-row__meta-item">
+                                <svg class="ic ic--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7l9-4 9 4M3 7v10l9 4 9-4V7M3 7l9 4m0 0l9-4m-9 4v10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                <span>版块</span>
+                            </span>
+                            <svg class="ic board-card__arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        </div>
+                    </a>
+                    <%
                         }
                     %>
-                    <span class="stat-value"><%= onlineCount %></span>
                 </div>
-            </div>
-        </div>
+                <%
+                    }
+                %>
+            </section>
 
-        <div class="main-content">
-            <div class="panel">
-                <h2>论坛板块</h2>
-                <div class="board-list">
-                    <%
-                        BoardService boardService = new BoardService();
-                        List<Board> boards = boardService.getAllBoards();
-                        if (boards == null || boards.isEmpty()) {
-                    %>
-                    <p style="text-align:center;padding:60px 0;color:#636e72;">暂无板块，管理员可以创建板块</p>
-                    <%
-                        } else {
-                    %>
-                    <table class="board-table">
-                        <thead>
-                            <tr>
-                                <th>板块名称</th>
-                                <th>描述</th>
-                                <th>帖子数</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <%
-                                for (Board board : boards) {
-                            %>
-                            <tr>
-                                <td><a href="${pageContext.request.contextPath}/board/detail?id=<%= board.getId() %>" class="board-name"><%= board.getName() %></a></td>
-                                <td class="board-desc"><%= board.getDescription() != null ? board.getDescription() : "" %></td>
-                                <td class="board-stats"><%= board.getPostCount() %></td>
-                                <td><a href="${pageContext.request.contextPath}/board/detail?id=<%= board.getId() %>" class="btn-enter">进入 &rarr;</a></td>
-                            </tr>
-                            <%
-                                }
-                            %>
-                        </tbody>
-                    </table>
-                    <%
-                        }
-                    %>
-                </div>
-            </div>
+            <%
+                User idxUser = (User) session.getAttribute("loginUser");
+                if (idxUser != null) {
+            %>
+            <!-- CTA 登录态 -->
+            <section class="section__divider"><span class="section__divider__label">— 继续 —</span></section>
+            <section class="section flex flex-center" style="gap:var(--space-4);flex-wrap:wrap">
+                <a class="btn btn--primary" href="${pageContext.request.contextPath}/post/create">
+                    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                    发布新帖
+                </a>
+                <%
+                    if (idxUser.isAdmin()) {
+                %>
+                <a class="btn btn--quiet" href="${pageContext.request.contextPath}/board/create">
+                    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 7l9-4 9 4M3 7v10l9 4 9-4V7M3 7l9 4m0 0l9-4m-9 4v10" stroke-linejoin="round"/></svg>
+                    创建版块
+                </a>
+                <%
+                    }
+                %>
+            </section>
+            <%
+                } else {
+            %>
+            <section class="section__divider"><span class="section__divider__label">— 加入我们 —</span></section>
+            <section class="section flex flex-center" style="gap:var(--space-4);flex-wrap:wrap">
+                <a class="btn btn--primary" href="${pageContext.request.contextPath}/user/register">
+                    立即注册
+                    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                </a>
+                <a class="btn btn--quiet" href="${pageContext.request.contextPath}/user/login">
+                    已有账号 · 登录
+                </a>
+            </section>
+            <%
+                }
+            %>
         </div>
-    </div>
+    </main>
 
-    <div class="footer">
-        <p>&copy; 2024 NetForum 网上论坛系统 - JavaWeb课程设计</p>
-    </div>
+    <jsp:include page="/pages/common/footer.jsp"/>
+</div>
 </body>
 </html>

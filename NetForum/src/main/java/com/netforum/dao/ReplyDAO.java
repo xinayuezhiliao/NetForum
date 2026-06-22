@@ -130,6 +130,26 @@ public class ReplyDAO {
     }
 
     /**
+     * 删除帖子的全部回复
+     */
+    public boolean deleteByPostId(Integer postId) {
+        String sql = "DELETE FROM t_reply WHERE post_id=?";
+        Connection conn = null;
+        PreparedStatement ps = null;
+        try {
+            conn = DBUtil.getConnection();
+            ps = conn.prepareStatement(sql);
+            ps.setInt(1, postId);
+            return ps.executeUpdate() >= 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        } finally {
+            DBUtil.close(conn, ps);
+        }
+    }
+
+    /**
      * 获取帖子回复总数
      */
     public int countByPostId(Integer postId) {
